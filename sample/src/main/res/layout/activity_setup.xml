@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="10dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="PareveYapchik — key setup"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/setup_state"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textSize="10sp" />
+
+        <RadioGroup
+            android:id="@+id/mode_group"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp">
+
+            <RadioButton android:id="@+id/mode_on"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textSize="11sp" android:text="Softkeys ON" />
+            <RadioButton android:id="@+id/mode_off"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textSize="11sp" android:text="Softkeys OFF" />
+            <RadioButton android:id="@+id/mode_auto"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textSize="11sp" android:text="Automatic (keypad phones only)" />
+        </RadioGroup>
+
+        <Button
+            android:id="@+id/btn_choose"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="34dp"
+            android:layout_marginTop="6dp"
+            android:padding="6dp"
+            android:textSize="11sp"
+            android:background="@drawable/focus_button"
+            android:text="Choose key layout…" />
+
+        <Button
+            android:id="@+id/btn_detect"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="34dp"
+            android:layout_marginTop="4dp"
+            android:padding="6dp"
+            android:textSize="11sp"
+            android:background="@drawable/focus_button"
+            android:text="Detect keys by pressing them…" />
+
+        <Button
+            android:id="@+id/btn_continue"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="34dp"
+            android:layout_marginTop="6dp"
+            android:padding="6dp"
+            android:textSize="11sp"
+            android:background="@drawable/focus_button"
+            android:text="Continue to demos" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textSize="9sp"
+            android:text="The softkey bar is intentionally OFF on this screen (per-screen override) so it can't conflict with the setup inputs. Every softkey press elsewhere in the app shows a toast with the key's label, so you can verify each physical key fires the label shown above it." />
+    </LinearLayout>
+</ScrollView>

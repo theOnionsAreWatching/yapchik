@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="10dp">
+
+    <TextView
+        android:id="@+id/map_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="12sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/map_canvas"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="6dp"
+        android:gravity="center"
+        android:background="#22000000"
+        android:textSize="12sp" />
+
+    <Button
+        android:id="@+id/btn_mode"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="34dp"
+        android:layout_marginTop="6dp"
+        android:padding="6dp"
+        android:textSize="11sp"
+        android:background="@drawable/focus_button"
+        android:text="Switch map / list mode (named key-sets)" />
+
+    <Button
+        android:id="@+id/btn_back_menu"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="34dp"
+        android:layout_marginTop="4dp"
+        android:padding="6dp"
+        android:textSize="11sp"
+        android:background="@drawable/focus_button"
+        android:text="Back to menu" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textSize="9sp"
+        android:text="LEFT = zoom out, RIGHT = zoom in (1x to 7x). Fully zoomed in, Zoom+ disappears from the bar and its key passes through; same for Zoom− at minimum. Presses toast Zoom +1, Zoom +2… with the resulting level, so you can check it matches the label." />
+</LinearLayout>

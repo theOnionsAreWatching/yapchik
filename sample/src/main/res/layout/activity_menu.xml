@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="10dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="PareveYapchik"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/menu_state"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textSize="10sp" />
+
+        <Button
+            android:id="@+id/btn_map"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="34dp"
+            android:layout_marginTop="8dp"
+            android:padding="6dp"
+            android:textSize="11sp"
+            android:background="@drawable/focus_button"
+            android:text="Map screen — zoom with limits" />
+
+        <Button
+            android:id="@+id/btn_focus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="34dp"
+            android:layout_marginTop="4dp"
+            android:padding="6dp"
+            android:textSize="11sp"
+            android:background="@drawable/focus_button"
+            android:text="Focus screen — text box changes the softkeys" />
+
+        <Button
+            android:id="@+id/btn_setup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="34dp"
+            android:layout_marginTop="4dp"
+            android:padding="6dp"
+            android:textSize="11sp"
+            android:background="@drawable/focus_button"
+            android:text="Key setup" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textSize="9sp"
+            android:text="Navigate with the D-pad — the focused option gets a bright outline; OK clicks it (the library never touches the D-pad). Softkeys: LEFT = Options (long-press for a long-press test), RIGHT = Exit." />
+    </LinearLayout>
+</ScrollView>

@@ -1,0 +1,75 @@
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ '*' ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed only by the tag-release step
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle (with caching)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Build library AAR
+        run: ./gradlew :yapchik:assembleRelease
+
+      - name: Build PareveYapchik test apps (both flavors, debug APKs)
+        run: ./gradlew :sample:assembleDebug
+
+      - name: Rename outputs
+        run: |
+          mkdir -p out
+          cp yapchik/build/outputs/aar/yapchik-release.aar out/yapchik.aar
+          cp sample/build/outputs/apk/condm3/debug/sample-condm3-debug.apk out/PareveYapchik-C-M3.apk
+          cp sample/build/outputs/apk/condmat/debug/sample-condmat-debug.apk out/PareveYapchik-C-Material.apk
+          cp sample/build/outputs/apk/alwaysmat/debug/sample-alwaysmat-debug.apk out/PareveYapchik-A-Material.apk
+          cp sample/build/outputs/apk/alwaysdef/debug/sample-alwaysdef-debug.apk out/PareveYapchik-A-Default.apk
+
+      - name: Upload library AAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: yapchik-aar
+          path: out/yapchik.aar
+
+      - name: Upload PareveYapchik APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: PareveYapchik-debug
+          path: |
+            out/PareveYapchik-C-M3.apk
+            out/PareveYapchik-C-Material.apk
+            out/PareveYapchik-A-Material.apk
+            out/PareveYapchik-A-Default.apk
+
+      # On version tags, also publish a GitHub Release with both files
+      # attached. (JitPack builds the library dependency from the same tag.)
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            out/yapchik.aar
+            out/PareveYapchik-C-M3.apk
+            out/PareveYapchik-C-Material.apk
+            out/PareveYapchik-A-Material.apk
+            out/PareveYapchik-A-Default.apk
+          generate_release_notes: true

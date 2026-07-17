@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.0.2 — 2026-07-17
+
+- **License changed to LGPL-3.0-or-later** (was PolyForm Noncommercial 1.0.0).
+  Any app, under any license, may link and ship the library; changes to the
+  library itself stay copyleft and users must be able to relink. FSF-free and
+  OSI-approved, so it's fine for F-Droid. LICENSE holds the LGPL text and
+  LICENSE.GPL-3.0 the GPL text it incorporates
+- New default profile KeyProfile.UNIVERSAL — listens for every known softkey
+  code at once (SOFT_LEFT/MENU/F1 and SOFT_RIGHT/F2, plus vendor names such
+  as MULTIFUNC_LEFT/MULTIFUNC_RIGHT resolved against the device's own keycode
+  table via KeyProfile.resolveNames), so most keypad phones work with no setup. BACK is excluded (system meaning; use MENU_BACK or a
+  per-device entry), as are reserved keys and any code whose slot is
+  ambiguous across devices
+- loadDeviceProfiles XML gains <softkeys left=… right=…> for extra vendor
+  keycodes and left/right attributes on <device> for per-model mappings;
+  keycodes accept names (KEYCODE_ prefix optional) or numbers. Resolution:
+  user choice > matching <device> entry > UNIVERSAL + <softkeys> list
+- Yapchik.clearKeyProfileChoice() / hasUserKeyProfile; the persisted profile
+  now records only explicit user choices
+- Yapchik.defaultScreenMode (and screenMode inside a defaults block): set OFF
+  for apps that want softkeys on some screens only — screens opt in with
+  screenMode = ON
+- Test app: the nav-guard adjuster now appears only on FRAMEWORK themes (DD
+  flavor) via Yapchik.themeKind; setup screen also reports the detected theme
+  family and whether the layout was chosen or automatic
+
 ## 1.0.1 — 2026-07-16
 
 - Three-way theme detection (Yapchik.themeKind): MATERIAL3 /

@@ -40,15 +40,15 @@ afterEvaluate {
                 from components.release
                 groupId = 'com.github.theonionsarewatching'
                 artifactId = 'yapchik'
-                version = '1.0.1'
+                version = '1.0.2'
 
                 pom {
                     name = 'Softkey Integration (Yapchik)'
                     description = 'Softkey engine for keypad / D-pad Android apps.'
                     licenses {
                         license {
-                            name = 'PolyForm Noncommercial License 1.0.0'
-                            url = 'https://polyformproject.org/licenses/noncommercial/1.0.0'
+                            name = 'GNU Lesser General Public License v3.0 or later'
+                            url = 'https://www.gnu.org/licenses/lgpl-3.0.txt'
                             distribution = 'repo'
                         }
                     }

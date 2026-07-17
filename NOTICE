@@ -1,9 +1,19 @@
 Softkey Integration (yapchik)
 
-Required Notice: Copyright 2026 theonionsarewatching (https://github.com/theonionsarewatching)
+Copyright (C) 2026 theonionsarewatching
+https://github.com/theonionsarewatching/yapchik
 
-Licensed under the PolyForm Noncommercial License 1.0.0.
-https://polyformproject.org/licenses/noncommercial/1.0.0
+This library is free software: you can redistribute it and/or modify it under
+the terms of the GNU Lesser General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version.
 
-Noncommercial use only. Commercial use requires a separate license
-from the copyright holder.
+This library is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public License along
+with this library. If not, see <https://www.gnu.org/licenses/>.
+
+The LGPL (LICENSE) incorporates the terms of the GNU General Public License
+version 3 (LICENSE.GPL-3.0), supplemented by the LGPL's additional permissions.

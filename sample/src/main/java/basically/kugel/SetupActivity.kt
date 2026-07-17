@@ -2,6 +2,7 @@ package basically.kugel
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.View
 import android.widget.Button
 import android.widget.RadioGroup
 import android.widget.TextView
@@ -41,10 +42,12 @@ class SetupActivity : BaseTestActivity() {
         }
         findViewById<Button>(R.id.btn_continue).setOnClickListener { goToMenu() }
 
-        // Nav-guard adjustment (used on Theme.DeviceDefault while the navbar
-        // is hidden — keeps the labels above vendor strips that survive the
-        // hide). Persisted by the library; "Auto" returns to per-device/
-        // automatic sizing.
+        // Nav-guard adjustment applies to framework themes (Theme.DeviceDefault,
+        // this app's DD flavor) only — Material3/AppCompat themes ship inside
+        // the APK and never get a vendor strip, so the row is hidden there.
+        val framework = Yapchik.themeKind(this) == Yapchik.ThemeKind.FRAMEWORK
+        findViewById<View>(R.id.guard_row).visibility =
+            if (framework) View.VISIBLE else View.GONE
         findViewById<Button>(R.id.btn_guard_minus).setOnClickListener { bumpGuard(-2) }
         findViewById<Button>(R.id.btn_guard_plus).setOnClickListener { bumpGuard(+2) }
         findViewById<Button>(R.id.btn_guard_auto).setOnClickListener {
@@ -92,12 +95,14 @@ class SetupActivity : BaseTestActivity() {
 
     private fun updateState() {
         findViewById<TextView>(R.id.guard_label).text =
-            "Bar bottom guard (DeviceDefault): " +
-            (Yapchik.navGuardDp?.let { "${it}dp" } ?: "auto")
+            "Bar bottom guard: " + (Yapchik.navGuardDp?.let { "${it}dp" } ?: "auto")
         findViewById<TextView>(R.id.setup_state).text =
             "Softkeys resolved: ${if (Yapchik.isActive) "ON" else "OFF"} " +
             "(mode: ${Yapchik.mode})\n" +
-            "Layout: ${Yapchik.keyProfile.displayName}\n${Yapchik.keyProfile.describe()}"
+            "Theme: ${Yapchik.themeKind(this)}\n" +
+            "Layout: ${Yapchik.keyProfile.displayName}" +
+            (if (Yapchik.hasUserKeyProfile) " (chosen)" else " (automatic)") +
+            "\n${Yapchik.keyProfile.describe()}"
     }
 
 

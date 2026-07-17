@@ -29,7 +29,7 @@ Intended for kosher phones, keypad phones, and any device where the D-pad is the
 - **On / Off / Automatic global mode**, persisted. AUTO detects keypad devices (12-key keyboard or no touchscreen; TVs excluded), so one APK behaves correctly on touch and keypad phones.
 - **State reporting.** `Yapchik.isActive`, `Softkeys.isShownIn(activity)`, and change listeners, so the app can adjust its own UI.
 - **Per-screen mode override** — force softkeys ON or OFF for one screen regardless of the global setting.
-- **Key profiles.** Devices route their softkeys as `SOFT_LEFT/SOFT_RIGHT`, `MENU/BACK`, or `F1/F2`. Built-in profiles, a chooser dialog, and a press-your-keys calibration flow, all persisted.
+- **Key profiles.** Listens for every known softkey code by default (`SOFT_LEFT`/`MENU`/`F1`/`MULTIFUNC_LEFT` and `SOFT_RIGHT`/`F2`/`MULTIFUNC_RIGHT`, vendor names resolved per device), so most phones need no setup. Built-in presets, per-device and extra-keycode declarations in XML, a chooser dialog, and a press-your-keys calibration flow — all persisted.
 - **Settings integration in one line** (`YapchikSettingsDialog.show(activity)`) or via a single property (`Yapchik.mode`) in your own settings screen.
 - **Navigation-bar policy.** Conditional by default on every theme family: navbar hidden while the softkey bar shows, restored when softkeys are off. Three-way theme detection (Material3 / AppCompat / framework), with a per-device-tunable nav guard on framework themes whose vendor strips survive hide requests.
 - **Zero dependencies.** Framework only — no androidx, no appcompat. Works with plain `Activity`, `AppCompatActivity`, anything. `minSdk 21`. Kotlin and Java hosts.
@@ -50,11 +50,11 @@ dependencyResolutionManagement {
 
 ```groovy
 dependencies {
-    implementation 'com.github.theonionsarewatching:yapchik:1.0.1'
+    implementation 'com.github.theonionsarewatching:yapchik:1.0.2'
 }
 ```
 
-If JitPack resolves the repo as multi-module, the coordinate is `com.github.theonionsarewatching.yapchik:yapchik:1.0.1`. Releases are built from git tags.
+If JitPack resolves the repo as multi-module, the coordinate is `com.github.theonionsarewatching.yapchik:yapchik:1.0.2`. Releases are built from git tags.
 
 **Local module.** Copy the `yapchik/` module into your project, `include ':yapchik'` in settings.gradle, `implementation project(':yapchik')`.
 
@@ -133,6 +133,20 @@ Yapchik.defaults { activity, keys ->
 ```
 
 Every screen now has these without writing any code. A screen that binds LEFT replaces the default LEFT only; a screen that calls `remove(SoftkeySlot.RIGHT)` suppresses the default RIGHT only; a screen that calls `noDefaults()` starts blank. `Yapchik.defaults(null)` unregisters. Register defaults in `Application.onCreate` — screens that never touch the softkey API only pick up defaults registered before they are created.
+
+**Softkeys on some screens only.** To keep the bar off everywhere by default and opt in per screen:
+
+```kotlin
+Yapchik.defaultScreenMode = SoftkeyMode.OFF     // no bar anywhere…
+```
+
+```kotlin
+// …until a screen asks for it:
+Softkeys.of(this).screenMode = SoftkeyMode.ON   // or `screenMode = SoftkeyMode.ON`
+                                                // inside the provider / set { } block
+```
+
+Setting `screenMode = SoftkeyMode.OFF` inside a `Yapchik.defaults { }` block does the same thing. Mode resolution, highest first: the screen's own `screenMode` → a defaults-block `screenMode` → `Yapchik.defaultScreenMode` → the global `Yapchik.mode`.
 
 ### Conditional keys and dynamic labels
 
@@ -286,16 +300,53 @@ Layout is handled automatically: while the bar is visible, the screen's content 
 
 ## Key profiles
 
-Keypad devices differ in what their softkeys send:
+Keypad devices differ in what their softkeys send. By default the library **listens for every known softkey code at once**, so most phones work with no setup at all:
 
-| Profile | LEFT | RIGHT | Typical devices |
+| Profile | LEFT | RIGHT | Notes |
 |---|---|---|---|
-| `KeyProfile.STANDARD` (default) | `SOFT_LEFT` (1) | `SOFT_RIGHT` (2) | proper feature-phone keymaps |
+| `KeyProfile.UNIVERSAL` (default) | `SOFT_LEFT` (1), `MENU` (82), `F1` (131), `MULTIFUNC_LEFT`* | `SOFT_RIGHT` (2), `F2` (132), `MULTIFUNC_RIGHT`* | all known softkey codes at once |
+| `KeyProfile.STANDARD` | `SOFT_LEFT` (1) | `SOFT_RIGHT` (2) | proper feature-phone keymaps |
 | `KeyProfile.MENU_BACK` | `MENU` (82) | `BACK` (4) | many MTK keypad devices |
 | `KeyProfile.FUNCTION` | `F1` (131) | `F2` (132) | some odd keymaps |
 
+\* Vendor keycode names that aren't in the public SDK (some keypad ROMs report their softkeys as `KEYCODE_MULTIFUNC_LEFT` / `KEYCODE_MULTIFUNC_RIGHT`, kernel scancodes 357 / 444). Their numbers vary per ROM, so the library resolves them **by name against the device's own keycode table** at runtime — the same table `adb shell input keyevent NAME` uses. A name the ROM doesn't define is dropped, so it costs nothing on phones that lack it. Add your own with `KeyProfile.resolveNames("VENDOR_KEY")`.
+
+**Keycodes vs scancodes:** `getevent` prints kernel *scancodes* (357/444 above); the library works in Android *keycodes*, which the device's `.kl` layout maps scancodes to. If you only know the scancode, run calibration — it captures the keycode the app actually receives.
+
+**What `UNIVERSAL` deliberately leaves out:**
+
+- **BACK.** It has a system meaning, so listening for it everywhere would swallow the back key on every screen with a RIGHT action. Devices whose right softkey *is* BACK use the `MENU_BACK` preset or a per-device XML entry.
+- **Reserved keys** (D-pad, numbers, letters, volume…) — never touched by any profile.
+- **Ambiguous codes** — anything that means LEFT on one phone and RIGHT on another can't be mapped blind; those belong in a per-device entry or calibration.
+
+### Declaring keys in XML
+
+```xml
+<!-- res/xml/yapchik_devices.xml -->
+<devices>
+    <!-- Extra vendor codes appended to UNIVERSAL. Names (KEYCODE_ prefix
+         optional) or raw numbers. Reserved keys and BACK are ignored here. -->
+    <softkeys left="SOFT_LEFT,MENU,F1,139" right="SOFT_RIGHT,F2,140" />
+
+    <!-- Per-device overrides, matched against Build.MODEL (case-insensitive).
+         left/right replace the mapping on that device (BACK allowed);
+         navGuardDp = "none" | integer dp for framework themes. -->
+    <device model="SL006D" left="SOFT_LEFT" right="SOFT_RIGHT" navGuardDp="16" />
+    <device model="XP3800" left="139" right="140" />
+    <device model="SOME-CLEAN-PHONE" navGuardDp="none" />
+</devices>
+```
+
+```kotlin
+Yapchik.loadDeviceProfiles(this, R.xml.yapchik_devices)   // once, after install
+```
+
+**Resolution order** (highest first): the user's own choice (chooser or calibration, persisted) → a matching `<device>` entry → `UNIVERSAL` + the `<softkeys>` list.
+
 ```kotlin
 Yapchik.keyProfile = KeyProfile.MENU_BACK              // programmatic, persisted
+Yapchik.clearKeyProfileChoice()                        // back to device XML / automatic
+Yapchik.hasUserKeyProfile                              // has the user chosen explicitly?
 SoftkeyProfileChooser.show(this)                       // user-facing chooser dialog
 SoftkeyProfileChooser.startCalibration(this)           // press-your-keys detection
 Yapchik.keyProfile = KeyProfile("acme", "Acme K1",     // fleet-specific custom profile
@@ -304,9 +355,9 @@ Yapchik.keyProfile = KeyProfile("acme", "Acme K1",     // fleet-specific custom 
 
 Calibration asks the user to press LEFT, then RIGHT, captures the two keycodes, and persists them as a custom profile. BACK cancels calibration; on devices whose right softkey *is* BACK, use the `MENU_BACK` preset instead.
 
-**Reserved keys.** Calibration never captures normal keys — D-pad, numbers, `*`/`#`, letters, typing keys, volume, call/power/camera, media. Pressing one shows a hint and the key keeps its normal function. The filter is a *blocklist* of known-normal keys, not an allowlist, because many keypad phones emit odd vendor keycodes for their softkeys — those are accepted. The same rule is enforced at runtime: reserved keys are never consumed as softkeys even if a hand-built profile contains them, so a bad profile can't break D-pad navigation, OK-clicks, or number input. `ReservedKeys.isReserved(keyCode)` exposes the check.
+**Reserved keys.** Calibration never captures normal keys — D-pad, numbers, `*`/`#`, letters, typing keys, volume, call/power/camera, media. Pressing one shows a hint and the key keeps its normal function. The filter is a *blocklist* of known-normal keys, not an allowlist, because many keypad phones emit odd vendor keycodes for their softkeys — those are accepted. The same rule is enforced at runtime and when parsing XML: reserved keys are never consumed as softkeys even if a hand-built profile or XML entry contains them, so a bad profile can't break D-pad navigation, OK-clicks, or number input. `ReservedKeys.isReserved(keyCode)` exposes the check.
 
-Consumption rule: a physical key is consumed only when softkeys are active on that screen **and** its slot resolves to a visible action **and** the key isn't reserved for that slot. With `MENU_BACK`, BACK behaves normally on any screen without a visible RIGHT action.
+Consumption rule: a physical key is consumed only when softkeys are active on that screen **and** its slot resolves to a visible action **and** the key isn't reserved. With `MENU_BACK`, BACK behaves normally on any screen without a visible RIGHT action.
 
 ## Styling
 
@@ -345,7 +396,7 @@ boolean on = Yapchik.isActive();
 | `mat` | PareveYapchik M (`basically.kugel.m`) | AppCompatActivity + Theme.AppCompat | APPCOMPAT |
 | `dd` | PareveYapchik DD (`basically.kugel.dd`) | plain Activity + Theme.DeviceDefault | FRAMEWORK (nav guard active while hiding) |
 
-All three behave conditionally: navbar hidden while the softkey bar shows, restored when softkeys are off. The DD flavor's setup screen includes the nav-guard adjuster (−/+/Auto, persisted), and `res/xml/yapchik_devices.xml` shows the per-device profile format. Note `AppCompatActivity` refuses to run framework themes, which is why DD uses a plain `Activity`. It is also a test app
+All three behave conditionally: navbar hidden while the softkey bar shows, restored when softkeys are off. The setup screen's nav-guard adjuster (−/+/Auto, persisted) appears only where it applies — the screen checks `Yapchik.themeKind(this)` and shows the row on FRAMEWORK themes (the DD flavor) only. `res/xml/yapchik_devices.xml` shows the key-declaration and per-device profile format. Note `AppCompatActivity` refuses to run framework themes, which is why DD uses a plain `Activity`. It is also a test app
 
 ```bash
 ./gradlew :sample:installM3Debug    # PareveYapchik M3
@@ -399,10 +450,14 @@ adb shell input keyevent --longpress 1
 |---|---|
 | `Yapchik.install(app)` | one-time setup in `Application.onCreate()` |
 | `Yapchik.defaults { activity, keys -> }` | app-wide default softkeys (null to unregister) |
+| `Yapchik.defaultScreenMode` | default per-screen mode (OFF = softkeys only where opted in) |
 | `Yapchik.mode` | get/set ON / OFF / AUTO (persisted, live-refreshes) |
 | `Yapchik.isActive` | resolved global state |
 | `Yapchik.addStateListener / removeStateListener` | react to on/off changes |
-| `Yapchik.keyProfile` | physical-key mapping (persisted) |
+| `Yapchik.keyProfile` | physical-key mapping — user choice > device XML > UNIVERSAL |
+| `Yapchik.clearKeyProfileChoice()` / `hasUserKeyProfile` | forget / query the user's explicit choice |
+| `Yapchik.loadDeviceProfiles(ctx, xml)` | extra softkey codes + per-device overrides + nav-guard |
+| `KeyProfile.resolveNames("NAME", …)` | vendor keycode names → codes, resolved on this device |
 | `Yapchik.style` / `refreshAll()` / `barHeightPx(ctx)` | styling + layout helpers |
 | `Yapchik.autoInsetContent` / `autoDetector` | inset behavior, AUTO heuristic |
 | `Yapchik.navigationBarPolicy` | AUTO (default, conditional everywhere) / HIDE_WITH_BAR / HIDE_ALWAYS / LEAVE_ALONE |
@@ -437,12 +492,19 @@ adb shell input keyevent --longpress 1
 
 ## License
 
-**PolyForm Noncommercial License 1.0.0** — see [LICENSE](LICENSE).
+**GNU Lesser General Public License v3.0 or later** — see [LICENSE](LICENSE), which incorporates the GPL-3.0 terms in [LICENSE.GPL-3.0](LICENSE.GPL-3.0).
 
-Free to use, modify, and distribute for any **noncommercial** purpose: personal and hobby projects, study and research, and use by charitable, educational, public-safety, health, environmental, and government organizations. Commercial use requires a separate license from the copyright holder — open an issue to ask.
+Free software: any app, under any license — GPL, other free licenses, or proprietary — may link this library and ship it. The copyleft applies to the library itself: publish your changes to *it* under the LGPL (or GPL), keep the notices, and let users relink against a modified copy. Your app's own code stays under whatever license you choose.
 
-SPDX identifier: `PolyForm-Noncommercial-1.0.0`. Note this is a source-available license, not an OSI-approved open-source license.
+SPDX identifier: `LGPL-3.0-or-later`. FSF-free and OSI-approved, so it's fine for F-Droid and other FOSS repositories.
 
-When redistributing the library or an app built on it, include this notice:
+The FSF's boilerplate for your own source files:
 
-> Required Notice: Copyright 2026 theonionsarewatching (https://github.com/theonionsarewatching)
+```
+Copyright (C) 2026 <you>
+
+This library is free software: you can redistribute it and/or modify it under
+the terms of the GNU Lesser General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version.
+```

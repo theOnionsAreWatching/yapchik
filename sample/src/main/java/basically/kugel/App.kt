@@ -18,7 +18,9 @@ class App : Application() {
         // on framework themes it adds the nav guard while hiding.
         Yapchik.navigationBarPolicy = Yapchik.NavBarPolicy.AUTO
 
-        // Per-device settings (nav-guard overrides), matched by Build.MODEL:
+        // Key mappings + per-device settings (extra softkey codes, per-model
+        // overrides, nav-guard sizes). Without this the library still listens
+        // for every known softkey code by default.
         Yapchik.loadDeviceProfiles(this, R.xml.yapchik_devices)
 
         // Compact bar for small keypad screens. All of these are library

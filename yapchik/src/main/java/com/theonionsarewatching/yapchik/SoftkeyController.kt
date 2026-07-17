@@ -58,6 +58,9 @@ class SoftkeyController internal constructor(private val activity: Activity) {
 
     private var _screenMode: SoftkeyMode? = null
 
+    /** screenMode declared in the app-wide defaults block; cached per refresh. */
+    private var defaultsScreenMode: SoftkeyMode? = null
+
     // ------------------------------------------------------------------ state
 
     /**
@@ -78,11 +81,16 @@ class SoftkeyController internal constructor(private val activity: Activity) {
         get() = bar?.parent != null
 
     /**
-     * Resolved state for this screen: the per-screen override if set,
-     * otherwise the global state. Host apps can check this to adjust layout.
+     * Resolved state for this screen. Mode resolution, highest first:
+     * this screen's [screenMode], the mode set in a [Yapchik.defaults] block,
+     * [Yapchik.defaultScreenMode], then the global [Yapchik.mode].
+     * Host apps can check this to adjust layout.
      */
     val isActiveOnThisScreen: Boolean
-        get() = _screenMode?.let { Yapchik.resolve(it) } ?: Yapchik.isActive
+        get() {
+            val mode = _screenMode ?: defaultsScreenMode ?: Yapchik.defaultScreenMode
+            return mode?.let { Yapchik.resolve(it) } ?: Yapchik.isActive
+        }
 
     /** Name of the active named set, or null when using the plain config. */
     val activeSetName: String? get() = activeSet
@@ -243,8 +251,12 @@ class SoftkeyController internal constructor(private val activity: Activity) {
 
     /** Same as [invalidate]; kept for symmetry with [Yapchik.refreshAll]. */
     fun refresh() {
+        val base = baseConfig()
+        val defaults =
+            if (base.inheritDefaults) Yapchik.buildDefaults(activity) else null
+        defaultsScreenMode = defaults?.screenMode
         currentBindings =
-            if (isActiveOnThisScreen) computeBindings() else emptyMap()
+            if (isActiveOnThisScreen) computeBindings(base, defaults) else emptyMap()
         ensureFocusListener()
         if (currentBindings.isNotEmpty()) showBar() else removeBar()
     }
@@ -252,11 +264,11 @@ class SoftkeyController internal constructor(private val activity: Activity) {
     private fun baseConfig(): SoftkeyConfig =
         activeSet?.let { namedSets[it] } ?: mainConfig
 
-    private fun computeBindings(): Map<SoftkeySlot, SoftkeyAction> {
-        val base = baseConfig()
+    private fun computeBindings(
+        base: SoftkeyConfig,
+        defaults: SoftkeyConfig?
+    ): Map<SoftkeySlot, SoftkeyAction> {
         val overlay = currentFocusOverlay()
-        val defaults =
-            if (base.inheritDefaults) Yapchik.buildDefaults(activity) else null
 
         val out = EnumMap<SoftkeySlot, SoftkeyAction>(SoftkeySlot::class.java)
         for (slot in SoftkeySlot.values()) {

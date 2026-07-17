@@ -5,6 +5,7 @@ import android.app.Application
 import android.content.Context
 import android.os.Build
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
@@ -60,6 +61,23 @@ object Yapchik {
      * [barHeightPx] and the state listeners.
      */
     var autoInsetContent = true
+
+    /**
+     * Default per-screen mode for screens that don't set their own
+     * [SoftkeyController.screenMode]. `null` (default) = follow the global
+     * [mode].
+     *
+     * Set to [SoftkeyMode.OFF] for apps that want softkeys on *some* screens
+     * only: no bar appears anywhere, and a screen opts in with
+     * `Softkeys.of(this).screenMode = SoftkeyMode.ON` (or `screenMode = ON`
+     * inside its provider / `set { }` block). Setting `screenMode` inside a
+     * [defaults] block does the same thing.
+     */
+    var defaultScreenMode: SoftkeyMode? = null
+        set(value) {
+            field = value
+            refreshAll()
+        }
 
     /** The three theme families the library distinguishes. See [themeKind]. */
     enum class ThemeKind {
@@ -165,41 +183,100 @@ object Yapchik {
         }
 
     /**
-     * Optionally load per-device settings from an XML resource:
+     * Load key mappings and per-device settings from an XML resource:
      *
      * ```xml
      * <devices>
-     *     <!-- model = android.os.Build.MODEL, case-insensitive.
-     *          navGuardDp = "none" | integer dp -->
-     *     <device model="SL006D" navGuardDp="16" />
-     *     <device model="SOME-CLEAN-DEVICE" navGuardDp="none" />
+     *     <!-- Extra keycodes appended to KeyProfile.UNIVERSAL, for vendor
+     *          softkeys the built-in list doesn't know about. Names (with or
+     *          without the KEYCODE_ prefix) or raw numbers, comma-separated. -->
+     *     <softkeys left="SOFT_LEFT,MENU,F1,139" right="SOFT_RIGHT,F2,140" />
+     *
+     *     <!-- Per-device entries, matched case-insensitively against
+     *          android.os.Build.MODEL. left/right replace the mapping for that
+     *          device; navGuardDp = "none" | integer dp (framework themes). -->
+     *     <device model="SL006D" left="SOFT_LEFT" right="SOFT_RIGHT" navGuardDp="16" />
+     *     <device model="XP3800" left="139" right="140" />
+     *     <device model="SOME-CLEAN-PHONE" navGuardDp="none" />
      * </devices>
      * ```
      *
-     * A matching entry sets the automatic nav-guard for this device; an
-     * explicit [navGuardDp] set by the user still wins over it.
+     * Precedence: a matching `<device>` entry beats the `<softkeys>` list,
+     * and the user's own choice ([keyProfile] / [SoftkeyProfileChooser])
+     * beats both. Reserved keys (D-pad, numbers, letters, volume… see
+     * [ReservedKeys]) are dropped from any list; BACK is allowed only in a
+     * per-device entry, never in the shared `<softkeys>` list, because it has
+     * a system meaning.
+     *
+     * Call once, right after [install]. Malformed files are ignored.
      */
     @JvmStatic
     fun loadDeviceProfiles(context: Context, xmlResId: Int) {
         try {
             val parser = context.resources.getXml(xmlResId)
             while (parser.eventType != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {
-                if (parser.eventType == org.xmlpull.v1.XmlPullParser.START_TAG &&
-                    parser.name == "device"
-                ) {
-                    val model = parser.getAttributeValue(null, "model")
-                    if (model != null && model.equals(Build.MODEL, ignoreCase = true)) {
-                        val guard = parser.getAttributeValue(null, "navGuardDp")
-                        deviceProfileGuardDp =
-                            if (guard != null && guard.equals("none", ignoreCase = true)) 0
-                            else guard?.toIntOrNull()
+                if (parser.eventType == org.xmlpull.v1.XmlPullParser.START_TAG) {
+                    when (parser.name) {
+                        "softkeys" -> {
+                            // Shared list: BACK excluded (system meaning).
+                            extraLeftKeys = parseKeyCodes(
+                                parser.getAttributeValue(null, "left"), allowBack = false
+                            )
+                            extraRightKeys = parseKeyCodes(
+                                parser.getAttributeValue(null, "right"), allowBack = false
+                            )
+                        }
+                        "device" -> {
+                            val model = parser.getAttributeValue(null, "model")
+                            if (model != null && model.equals(Build.MODEL, ignoreCase = true)) {
+                                val guard = parser.getAttributeValue(null, "navGuardDp")
+                                if (guard != null) {
+                                    deviceProfileGuardDp =
+                                        if (guard.equals("none", ignoreCase = true)) 0
+                                        else guard.toIntOrNull()
+                                }
+                                // Per-device: BACK is allowed — plenty of
+                                // keypad phones use it as the right softkey.
+                                val left = parseKeyCodes(
+                                    parser.getAttributeValue(null, "left"), allowBack = true
+                                )
+                                val right = parseKeyCodes(
+                                    parser.getAttributeValue(null, "right"), allowBack = true
+                                )
+                                if (left.isNotEmpty() || right.isNotEmpty()) {
+                                    deviceKeyProfile = KeyProfile.device(model, left, right)
+                                }
+                            }
+                        }
                     }
                 }
                 parser.next()
             }
+            refreshAll()
         } catch (_: Exception) {
             // malformed profile files must never crash the host app
         }
+    }
+
+    /**
+     * Parse a keycode list: "SOFT_LEFT,MENU,131" / "KEYCODE_F1" / "1,82".
+     * Unknown names and reserved keys are dropped.
+     */
+    private fun parseKeyCodes(spec: String?, allowBack: Boolean): Set<Int> {
+        if (spec.isNullOrBlank()) return emptySet()
+        val out = LinkedHashSet<Int>()
+        for (raw in spec.split(',')) {
+            val token = raw.trim()
+            if (token.isEmpty()) continue
+            val code = token.toIntOrNull() ?: KeyEvent.keyCodeFromString(
+                if (token.startsWith("KEYCODE_")) token else "KEYCODE_$token"
+            )
+            if (code == KeyEvent.KEYCODE_UNKNOWN) continue
+            if (ReservedKeys.isReserved(code)) continue
+            if (!allowBack && code == KeyEvent.KEYCODE_BACK) continue
+            out.add(code)
+        }
+        return out
     }
 
     /** Resolved guard height in px for this Activity (FRAMEWORK themes only). */
@@ -258,7 +335,7 @@ object Yapchik {
         app = application
         YapchikPrefs.init(application)
         _mode = YapchikPrefs.loadMode()
-        _keyProfile = YapchikPrefs.loadProfile()
+        _keyProfile = YapchikPrefs.loadProfile() // null until the user chooses
         _navGuardDp = YapchikPrefs.loadNavGuard()
         application.registerActivityLifecycleCallbacks(lifecycleHook)
     }
@@ -326,19 +403,62 @@ object Yapchik {
 
     // --------------------------------------------------------------- profile
 
-    private var _keyProfile: KeyProfile = KeyProfile.STANDARD
+    private var _keyProfile: KeyProfile? = null
+
+    @Volatile
+    private var deviceKeyProfile: KeyProfile? = null
+
+    @Volatile
+    private var extraLeftKeys: Set<Int> = emptySet()
+
+    @Volatile
+    private var extraRightKeys: Set<Int> = emptySet()
 
     /**
-     * The active key profile: which physical keycodes map to LEFT and
-     * RIGHT. Persisted automatically. See [KeyProfile.BUILT_IN] and
-     * [SoftkeyProfileChooser].
+     * The active key profile: which physical keycodes map to LEFT and RIGHT.
+     *
+     * Resolution order (highest first):
+     * 1. the user's explicit choice — [SoftkeyProfileChooser] or a value
+     *    assigned here (persisted; clear it with [clearKeyProfileChoice])
+     * 2. a per-device `<device>` entry from [loadDeviceProfiles] that matches
+     *    this phone's `Build.MODEL`
+     * 3. [KeyProfile.UNIVERSAL] — every known softkey code at once — plus any
+     *    extra codes declared in a `<softkeys>` entry from [loadDeviceProfiles]
+     *
+     * See [KeyProfile.BUILT_IN] for the presets.
      */
     var keyProfile: KeyProfile
-        get() = _keyProfile
+        get() = _keyProfile ?: deviceKeyProfile ?: universalProfile()
         set(value) {
             _keyProfile = value
             YapchikPrefs.saveProfile(value)
+            refreshAll()
         }
+
+    /** True when the user has explicitly chosen or calibrated a layout. */
+    val hasUserKeyProfile: Boolean
+        get() = _keyProfile != null
+
+    /**
+     * Forget the user's explicit layout choice, falling back to the
+     * device profile / [KeyProfile.UNIVERSAL] as if they had never chosen.
+     */
+    @JvmStatic
+    fun clearKeyProfileChoice() {
+        _keyProfile = null
+        YapchikPrefs.saveProfile(null)
+        refreshAll()
+    }
+
+    private fun universalProfile(): KeyProfile {
+        if (extraLeftKeys.isEmpty() && extraRightKeys.isEmpty()) return KeyProfile.UNIVERSAL
+        return KeyProfile(
+            KeyProfile.UNIVERSAL_ID,
+            KeyProfile.UNIVERSAL.displayName,
+            KeyProfile.UNIVERSAL.leftKeys + extraLeftKeys,
+            KeyProfile.UNIVERSAL.rightKeys + extraRightKeys
+        )
+    }
 
     // ----------------------------------------------------------------- state
 

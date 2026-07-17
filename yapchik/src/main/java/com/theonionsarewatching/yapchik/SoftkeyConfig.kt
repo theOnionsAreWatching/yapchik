@@ -37,6 +37,11 @@ class SoftkeyConfig {
      * `null` (default) — follow the global [Yapchik.mode].
      * [SoftkeyMode.OFF] — softkeys never appear on this screen, even if globally on.
      * [SoftkeyMode.ON]  — softkeys always appear on this screen, even if globally auto/off.
+     *
+     * In a [Yapchik.defaults] block this sets the app-wide default instead
+     * (same as [Yapchik.defaultScreenMode]): `screenMode = SoftkeyMode.OFF`
+     * there means no softkeys anywhere until a screen opts in with
+     * `screenMode = SoftkeyMode.ON`.
      */
     var screenMode: SoftkeyMode? = null
 

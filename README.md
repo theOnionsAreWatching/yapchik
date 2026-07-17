@@ -492,16 +492,9 @@ adb shell input keyevent --longpress 1
 
 ## License
 
-**GNU Lesser General Public License v3.0 or later** — see [LICENSE](LICENSE), which incorporates the GPL-3.0 terms in [LICENSE.GPL-3.0](LICENSE.GPL-3.0).
-
-Free software: any app, under any license — GPL, other free licenses, or proprietary — may link this library and ship it. The copyleft applies to the library itself: publish your changes to *it* under the LGPL (or GPL), keep the notices, and let users relink against a modified copy. Your app's own code stays under whatever license you choose.
-
-SPDX identifier: `LGPL-3.0-or-later`. FSF-free and OSI-approved, so it's fine for F-Droid and other FOSS repositories.
-
-The FSF's boilerplate for your own source files:
-
+**GNU Lesser General Public License v3.0 or later** 
 ```
-Copyright (C) 2026 <you>
+Copyright (C) 2026 theOnionsAreWatching
 
 This library is free software: you can redistribute it and/or modify it under
 the terms of the GNU Lesser General Public License as published by the Free

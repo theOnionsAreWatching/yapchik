@@ -325,8 +325,24 @@ class SoftkeyController internal constructor(private val activity: Activity) {
             b = SoftkeyBar(activity)
             bar = b
         }
+
+        // FRAMEWORK-theme nav guard: vendor builds of Theme.DeviceDefault can
+        // keep drawing their bottom strip even after a navbar-hide request
+        // (which drops the navbar inset, expanding the window under the
+        // strip). Grow the bar by the guard height with the labels anchored
+        // in the top portion so they always stay above such a strip.
+        // MATERIAL3/APPCOMPAT themes ship in the APK and don't need this.
+        val policy = Yapchik.resolvedNavBarPolicy(activity)
+        val hideInEffect = policy == Yapchik.NavBarPolicy.HIDE_ALWAYS ||
+            policy == Yapchik.NavBarPolicy.HIDE_WITH_BAR
+        val guardPx =
+            if (hideInEffect && Yapchik.themeKind(activity) == Yapchik.ThemeKind.FRAMEWORK)
+                Yapchik.navGuardPx(activity)
+            else 0
+        val totalHeight = heightPx + guardPx
+        b.setPadding(0, 0, 0, guardPx)
         val lp = FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, heightPx, Gravity.BOTTOM
+            ViewGroup.LayoutParams.MATCH_PARENT, totalHeight, Gravity.BOTTOM
         )
         if (b.parent == null) {
             content.addView(b, lp)
@@ -337,7 +353,7 @@ class SoftkeyController internal constructor(private val activity: Activity) {
         }
         b.bringToFront()
         b.bind(currentBindings, labelOverrides)
-        applyInset(content, heightPx)
+        applyInset(content, totalHeight)
 
         // HIDE_WITH_BAR: navbar hidden exactly while a softkey bar is shown.
         // Re-asserted on every refresh so it survives dialogs/focus changes.

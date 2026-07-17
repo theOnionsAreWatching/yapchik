@@ -11,12 +11,8 @@ android {
         applicationId 'basically.kugel'
         minSdk 21
         targetSdk 34
-        versionCode 1
-        versionName '1.0.0'
-    }
-
-    buildFeatures {
-        buildConfig true
+        versionCode 2
+        versionName '1.0.1'
     }
 
     compileOptions {
@@ -27,38 +23,30 @@ android {
         jvmTarget = '17'
     }
 
-    // Four side-by-side test builds — the navbar behavior matrix:
-    //   CM3: AppCompatActivity + Material3 theme,        conditional (HIDE_WITH_BAR)
-    //   CM : AppCompatActivity + Theme.AppCompat,        conditional (HIDE_WITH_BAR)
-    //   AM : AppCompatActivity + Theme.AppCompat,        always hide (HIDE_ALWAYS)
-    //   AD : plain Activity    + Theme.DeviceDefault,      always hide (HIDE_ALWAYS)
-    // (AppCompatActivity cannot run framework themes — Theme.AppCompat is the
-    //  AppCompat-family equivalent of Theme.Material.)
-    flavorDimensions = ['nav']
+    // Three side-by-side test builds — one per theme family. All use the
+    // library's default AUTO navbar policy (conditional everywhere: navbar
+    // hidden while the softkey bar shows, restored when softkeys are off);
+    // the library detects the theme family per Activity and applies the
+    // FRAMEWORK nav guard where needed.
+    //   M3 : AppCompatActivity + Material3
+    //   MAT: AppCompatActivity + Theme.AppCompat
+    //   DD : plain Activity    + Theme.DeviceDefault
+    flavorDimensions = ['theme']
     productFlavors {
-        condm3 {
-            dimension 'nav'
-            applicationIdSuffix '.cm3'
-            resValue 'string', 'app_name', 'PareveYapchik CM3'
-            buildConfigField 'String', 'NAV_MODE', '"with_bar"'
+        m3 {
+            dimension 'theme'
+            applicationIdSuffix '.m3'
+            resValue 'string', 'app_name', 'PareveYapchik M3'
         }
-        condmat {
-            dimension 'nav'
-            applicationIdSuffix '.cm'
-            resValue 'string', 'app_name', 'PareveYapchik CM'
-            buildConfigField 'String', 'NAV_MODE', '"with_bar"'
+        mat {
+            dimension 'theme'
+            applicationIdSuffix '.m'
+            resValue 'string', 'app_name', 'PareveYapchik M'
         }
-        alwaysmat {
-            dimension 'nav'
-            applicationIdSuffix '.am'
-            resValue 'string', 'app_name', 'PareveYapchik AM'
-            buildConfigField 'String', 'NAV_MODE', '"always"'
-        }
-        alwaysdef {
-            dimension 'nav'
-            applicationIdSuffix '.ad'
-            resValue 'string', 'app_name', 'PareveYapchik AD'
-            buildConfigField 'String', 'NAV_MODE', '"always"'
+        dd {
+            dimension 'theme'
+            applicationIdSuffix '.dd'
+            resValue 'string', 'app_name', 'PareveYapchik DD'
         }
     }
 }
@@ -66,7 +54,6 @@ android {
 dependencies {
     implementation project(':yapchik')
     // Flavor-scoped UI stacks — the library itself stays zero-dependency
-    condm3Implementation 'com.google.android.material:material:1.12.0'
-    condmatImplementation 'androidx.appcompat:appcompat:1.7.0'
-    alwaysmatImplementation 'androidx.appcompat:appcompat:1.7.0'
+    m3Implementation 'com.google.android.material:material:1.12.0'
+    matImplementation 'androidx.appcompat:appcompat:1.7.0'
 }

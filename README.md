@@ -31,7 +31,7 @@ Intended for kosher phones, keypad phones, and any device where the D-pad is the
 - **Per-screen mode override** — force softkeys ON or OFF for one screen regardless of the global setting.
 - **Key profiles.** Devices route their softkeys as `SOFT_LEFT/SOFT_RIGHT`, `MENU/BACK`, or `F1/F2`. Built-in profiles, a chooser dialog, and a press-your-keys calibration flow, all persisted.
 - **Settings integration in one line** (`YapchikSettingsDialog.show(activity)`) or via a single property (`Yapchik.mode`) in your own settings screen.
-- **Navigation-bar policy.** Configurable handling of the (useless-on-keypad) system navigation bar, defaulting to a theme-keyed AUTO mode that conditionally hides on Material3 apps and stays hands-off on framework themes so the softkey bar sits above any navbar or vendor strip.
+- **Navigation-bar policy.** Conditional by default on every theme family: navbar hidden while the softkey bar shows, restored when softkeys are off. Three-way theme detection (Material3 / AppCompat / framework), with a per-device-tunable nav guard on framework themes whose vendor strips survive hide requests.
 - **Zero dependencies.** Framework only — no androidx, no appcompat. Works with plain `Activity`, `AppCompatActivity`, anything. `minSdk 21`. Kotlin and Java hosts.
 
 ## Installation
@@ -50,11 +50,11 @@ dependencyResolutionManagement {
 
 ```groovy
 dependencies {
-    implementation 'com.github.theonionsarewatching:yapchik:1.0.0'
+    implementation 'com.github.theonionsarewatching:yapchik:1.0.1'
 }
 ```
 
-If JitPack resolves the repo as multi-module, the coordinate is `com.github.theonionsarewatching.yapchik:yapchik:1.0.0`. Releases are built from git tags.
+If JitPack resolves the repo as multi-module, the coordinate is `com.github.theonionsarewatching.yapchik:yapchik:1.0.1`. Releases are built from git tags.
 
 **Local module.** Copy the `yapchik/` module into your project, `include ':yapchik'` in settings.gradle, `implementation project(':yapchik')`.
 
@@ -337,22 +337,20 @@ boolean on = Yapchik.isActive();
 
 ## Test app: PareveYapchik
 
-`sample/` builds **PareveYapchik** in four side-by-side flavors — a {conditional, always-hide} × {UI profile} matrix for navbar behavior on device:
+`sample/` builds **PareveYapchik** in three side-by-side flavors — one per theme family, all running the library's default AUTO policy so they exercise the runtime theme detection:
 
-| Flavor | App | Activity + theme | Navbar policy |
+| Flavor | App | Activity + theme | Detected as |
 |---|---|---|---|
-| `condm3` | PareveYapchik CM3 (`basically.kugel.cm3`) | AppCompatActivity + Material3 | `HIDE_WITH_BAR` — hidden while the softkey bar shows, back when softkeys are off |
-| `condmat` | PareveYapchik CM (`basically.kugel.cm`) | AppCompatActivity + Theme.AppCompat | `HIDE_WITH_BAR` |
-| `alwaysmat` | PareveYapchik AM (`basically.kugel.am`) | AppCompatActivity + Theme.AppCompat | `HIDE_ALWAYS` |
-| `alwaysdef` | PareveYapchik AD (`basically.kugel.ad`) | plain Activity + Theme.DeviceDefault | `HIDE_ALWAYS` |
+| `m3` | PareveYapchik M3 (`basically.kugel.m3`) | AppCompatActivity + Material3 | MATERIAL3 |
+| `mat` | PareveYapchik M (`basically.kugel.m`) | AppCompatActivity + Theme.AppCompat | APPCOMPAT |
+| `dd` | PareveYapchik DD (`basically.kugel.dd`) | plain Activity + Theme.DeviceDefault | FRAMEWORK (nav guard active while hiding) |
 
-Note: `AppCompatActivity` refuses to run under framework themes (`Theme.Material`, `Theme.DeviceDefault`) — it requires an AppCompat-descendant theme, which is why the non-Material3 AppCompat flavors use `Theme.AppCompat` and the DeviceDefault flavor uses a plain `Activity`. It is also a test app
+All three behave conditionally: navbar hidden while the softkey bar shows, restored when softkeys are off. The DD flavor's setup screen includes the nav-guard adjuster (−/+/Auto, persisted), and `res/xml/yapchik_devices.xml` shows the per-device profile format. Note `AppCompatActivity` refuses to run framework themes, which is why DD uses a plain `Activity`. It is also a test app
 
 ```bash
-./gradlew :sample:installCondm3Debug      # PareveYapchik CM3
-./gradlew :sample:installCondmatDebug     # PareveYapchik CM
-./gradlew :sample:installAlwaysmatDebug   # PareveYapchik AM
-./gradlew :sample:installAlwaysdefDebug   # PareveYapchik AD
+./gradlew :sample:installM3Debug    # PareveYapchik M3
+./gradlew :sample:installMatDebug   # PareveYapchik M
+./gradlew :sample:installDdDebug    # PareveYapchik DD
 ```
 
 ## Testing without a keypad phone
@@ -369,15 +367,9 @@ adb shell input keyevent --longpress 1
 
 ## Troubleshooting
 
-**A bottom system strip appears on a vendor keypad ROM even though it's hidden in other apps.** On several keypad-phone ROMs, the vendor wires a system softkey/bottom bar into the framework and keys it to the `Theme.DeviceDefault` family — it appears for DeviceDefault-themed apps regardless of any hide flags, and never appears for apps on Material/AppCompat themes. Fix: don't use `Theme.DeviceDefault*` in your app; use a Material or AppCompat `NoActionBar` theme (the test app uses `Theme.Material.NoActionBar`).
+**Theme families and the navigation bar — how the library decides.** The library distinguishes three theme families per Activity (`Yapchik.themeKind`): MATERIAL3 (Material3 themes, detected via `colorPrimaryContainer`), APPCOMPAT (other AppCompat-family themes, via app-namespace `colorPrimary`), and FRAMEWORK (`Theme.DeviceDefault`, `Theme.Material`, …). This matters because `Theme.DeviceDefault` is the one theme device makers may overlay — the same app can behave differently per device on it, including vendor bottom strips that keep drawing after a navbar-hide request (the request still drops the navbar inset, expanding the window under the strip). MATERIAL3/APPCOMPAT themes ship inside the APK and are immune. Also note `AppCompatActivity` requires an AppCompat-descendant theme — pairing it with a framework theme crashes at launch.
 
-**A system navigation bar / vendor bottom strip shows, or the softkey bar ends up behind it.** Important mechanism, learned the hard way on vendor keypad ROMs: a navbar-hide *request* removes the navbar's layout inset immediately (the window expands to the physical bottom) — and if the ROM's strip keeps drawing anyway (several vendor builds do), it draws over the app, putting the softkey bar behind it. Insets then report zero, so inset-based safety nets see nothing. On such ROMs the only reliable configuration is to not request the hide at all: the content stays inset and the softkey bar sits cleanly above the strip.
-
-`Yapchik.navigationBarPolicy` manages this: `AUTO` (default) removes the navbar completely (`HIDE_ALWAYS`) when the app uses a Material3-based theme, and behaves as `LEAVE_ALONE` on framework themes (`Theme.Material`, `Theme.DeviceDefault`, …) so the bar sits above any navbar or strip; `HIDE_WITH_BAR` hides the navbar exactly while a softkey bar is visible and restores it when the bar goes away (touch users with softkeys off keep their navbar); `HIDE_ALWAYS` hides on every Activity; `LEAVE_ALONE` never touches system UI. Hiding fires `WindowInsetsController` (Android 11+) plus the legacy immersive flags together, re-asserted on every start/resume/refresh.
-
-`hideSystemNavigation` / `restoreSystemNavigation` remain for manual control.
-
-**If a ROM's strip survives even correct hide requests:** be aware some vendor keypad ROMs decide navbar/strip visibility per *package* at the system level (e.g. known/approved apps get no strip, unknown ones do). No app-side code can override that — verified by production keypad apps that contain zero hiding code yet show no strip. If two apps behave differently on the same ROM with the same theme and same code profile, look at the ROM's app policy, not the app.
+`Yapchik.navigationBarPolicy` (default `AUTO`) is conditional on every family: navbar hidden while a softkey bar is visible, restored when it goes away, re-asserted on every start/resume/refresh. On FRAMEWORK themes, while hiding is in effect the bar additionally grows by the **nav guard** so its labels stay above any surviving vendor strip. Guard sizing: user-set `Yapchik.navGuardDp` (persisted; 0 disables) → per-device value from `Yapchik.loadDeviceProfiles(context, R.xml.yourfile)` matched by `Build.MODEL` → automatic (probable navbar height). Explicit `HIDE_WITH_BAR` / `HIDE_ALWAYS` / `LEAVE_ALONE` policies and `hideSystemNavigation` / `restoreSystemNavigation` remain available.
 
 **Bar never shows on the test device.** Mode is `AUTO` on a touch device — expected. Set mode to ON from settings or `Yapchik.mode = SoftkeyMode.ON`.
 
@@ -413,7 +405,9 @@ adb shell input keyevent --longpress 1
 | `Yapchik.keyProfile` | physical-key mapping (persisted) |
 | `Yapchik.style` / `refreshAll()` / `barHeightPx(ctx)` | styling + layout helpers |
 | `Yapchik.autoInsetContent` / `autoDetector` | inset behavior, AUTO heuristic |
-| `Yapchik.navigationBarPolicy` | AUTO (default, theme-keyed) / HIDE_WITH_BAR / HIDE_ALWAYS / LEAVE_ALONE |
+| `Yapchik.navigationBarPolicy` | AUTO (default, conditional everywhere) / HIDE_WITH_BAR / HIDE_ALWAYS / LEAVE_ALONE |
+| `Yapchik.themeKind(activity)` | MATERIAL3 / APPCOMPAT / FRAMEWORK detection |
+| `Yapchik.navGuardDp` / `loadDeviceProfiles(ctx, xml)` | FRAMEWORK-theme nav guard: user override / per-device XML |
 | `Yapchik.hideSystemNavigation / restoreSystemNavigation` | manual navbar control for bar-less screens |
 | `Softkeys.of(activity)` | this screen's controller |
 | `Softkeys.isShownIn(activity)` | bar visible here? |

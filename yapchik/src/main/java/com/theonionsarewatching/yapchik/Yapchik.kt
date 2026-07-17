@@ -61,21 +61,53 @@ object Yapchik {
      */
     var autoInsetContent = true
 
+    /** The three theme families the library distinguishes. See [themeKind]. */
+    enum class ThemeKind {
+        /** Google Material library, Material3 themes (ship inside the APK). */
+        MATERIAL3,
+
+        /** AppCompat-family themes that are not Material3 (ship inside the APK). */
+        APPCOMPAT,
+
+        /**
+         * Framework themes — Theme.DeviceDefault, Theme.Material, etc.
+         * Theme.DeviceDefault is the one theme device makers may overlay, so
+         * its behavior (including vendor bottom strips that ignore navbar
+         * hide requests) varies per device by design.
+         */
+        FRAMEWORK
+    }
+
+    /**
+     * Which theme family an Activity is running. Detection is by attribute
+     * resolution against the live theme: Material3 defines
+     * `colorPrimaryContainer`, AppCompat defines an app-namespace
+     * `colorPrimary`; anything else is a framework theme.
+     */
+    fun themeKind(activity: Activity): ThemeKind = when {
+        resolvesAppAttr(activity, "colorPrimaryContainer") -> ThemeKind.MATERIAL3
+        resolvesAppAttr(activity, "colorPrimary") -> ThemeKind.APPCOMPAT
+        else -> ThemeKind.FRAMEWORK
+    }
+
+    private fun resolvesAppAttr(activity: Activity, name: String): Boolean = try {
+        val attr = activity.resources.getIdentifier(name, "attr", activity.packageName)
+        attr != 0 && activity.theme.resolveAttribute(attr, android.util.TypedValue(), true)
+    } catch (_: Exception) {
+        false
+    }
+
     /** How the system navigation bar is managed. See [navigationBarPolicy]. */
     enum class NavBarPolicy {
         /**
-         * Default. Keyed to the app's theme:
-         * - Material3-based themes (Google Material library): behaves as
-         *   [HIDE_ALWAYS] — the navigation bar is removed completely.
-         * - Framework themes (Theme.Material / Theme.DeviceDefault / etc.):
-         *   behaves as [LEAVE_ALONE] — the bar simply sits above any
-         *   navigation bar.
-         *
-         * Rationale: on several vendor keypad ROMs, a navbar-hide *request*
-         * removes the navbar's layout inset (the window expands to the
-         * physical bottom) while the vendor's strip keeps drawing anyway —
-         * over the app. On such ROMs the framework-theme branch
-         * (no hide requests) keeps the bar reliably above the strip.
+         * Default: conditional on every theme family — the navigation bar is
+         * hidden while a softkey bar is visible and restored when it goes
+         * away (behaves as [HIDE_WITH_BAR]). On FRAMEWORK themes
+         * (Theme.DeviceDefault etc.) the softkey bar additionally grows by
+         * the nav-guard height while hiding is in effect, because vendor
+         * builds of DeviceDefault may keep drawing their bottom strip even
+         * after a successful-looking hide request; the guard keeps the
+         * labels above it. See [navGuardDp] and [loadDeviceProfiles].
          */
         AUTO,
 
@@ -100,26 +132,109 @@ object Yapchik {
      */
     var navigationBarPolicy = NavBarPolicy.AUTO
 
-    /**
-     * Resolve [NavBarPolicy.AUTO] for a concrete Activity: Material3-based
-     * themes get HIDE_WITH_BAR, everything else LEAVE_ALONE.
-     */
+    /** Resolve [NavBarPolicy.AUTO] for a concrete Activity. */
     fun resolvedNavBarPolicy(activity: Activity): NavBarPolicy {
         val p = navigationBarPolicy
-        if (p != NavBarPolicy.AUTO) return p
-        return if (themeIsMaterial3(activity)) NavBarPolicy.HIDE_ALWAYS
-        else NavBarPolicy.LEAVE_ALONE
+        return if (p == NavBarPolicy.AUTO) NavBarPolicy.HIDE_WITH_BAR else p
     }
 
-    private fun themeIsMaterial3(activity: Activity): Boolean = try {
-        // colorPrimaryContainer is a Material3-only attribute; it resolves in
-        // the app namespace when the Google Material library is on the theme.
-        val attr = activity.resources.getIdentifier(
-            "colorPrimaryContainer", "attr", activity.packageName
-        )
-        attr != 0 && activity.theme.resolveAttribute(attr, android.util.TypedValue(), true)
-    } catch (_: Exception) {
-        false
+    // ------------------------------------------------------------ nav guard
+
+    @Volatile
+    private var deviceProfileGuardDp: Int? = null
+
+    private var _navGuardDp: Int? = null
+
+    /**
+     * Extra height (dp) added to the bottom of the softkey bar on FRAMEWORK
+     * themes while a navbar hide is in effect — keeps the labels above
+     * vendor bottom strips that survive hide requests.
+     *
+     * `null` (default) = automatic: a per-device value from
+     * [loadDeviceProfiles] if one matched, else the device's probable
+     * navbar height. Set an explicit dp value (0 disables the guard) to
+     * override; persisted across runs. Not used on MATERIAL3/APPCOMPAT
+     * themes, which are immune to vendor theme overlays.
+     */
+    var navGuardDp: Int?
+        get() = _navGuardDp
+        set(value) {
+            _navGuardDp = value
+            YapchikPrefs.saveNavGuard(value)
+            refreshAll()
+        }
+
+    /**
+     * Optionally load per-device settings from an XML resource:
+     *
+     * ```xml
+     * <devices>
+     *     <!-- model = android.os.Build.MODEL, case-insensitive.
+     *          navGuardDp = "none" | integer dp -->
+     *     <device model="SL006D" navGuardDp="16" />
+     *     <device model="SOME-CLEAN-DEVICE" navGuardDp="none" />
+     * </devices>
+     * ```
+     *
+     * A matching entry sets the automatic nav-guard for this device; an
+     * explicit [navGuardDp] set by the user still wins over it.
+     */
+    @JvmStatic
+    fun loadDeviceProfiles(context: Context, xmlResId: Int) {
+        try {
+            val parser = context.resources.getXml(xmlResId)
+            while (parser.eventType != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {
+                if (parser.eventType == org.xmlpull.v1.XmlPullParser.START_TAG &&
+                    parser.name == "device"
+                ) {
+                    val model = parser.getAttributeValue(null, "model")
+                    if (model != null && model.equals(Build.MODEL, ignoreCase = true)) {
+                        val guard = parser.getAttributeValue(null, "navGuardDp")
+                        deviceProfileGuardDp =
+                            if (guard != null && guard.equals("none", ignoreCase = true)) 0
+                            else guard?.toIntOrNull()
+                    }
+                }
+                parser.next()
+            }
+        } catch (_: Exception) {
+            // malformed profile files must never crash the host app
+        }
+    }
+
+    /** Resolved guard height in px for this Activity (FRAMEWORK themes only). */
+    internal fun navGuardPx(activity: Activity): Int {
+        val explicitDp = _navGuardDp ?: deviceProfileGuardDp
+        if (explicitDp != null) {
+            return (explicitDp * activity.resources.displayMetrics.density).toInt()
+        }
+        return probableNavBarHeight(activity)
+    }
+
+    /**
+     * Best guess at the height of a navigation bar / vendor bottom strip:
+     * live insets when available; after a hide request the system reports
+     * zero even when a vendor strip keeps drawing, so this falls back to the
+     * device's declared navigation_bar_height.
+     */
+    private fun probableNavBarHeight(activity: Activity): Int {
+        var h = 0
+        val insets = activity.window?.peekDecorView()?.rootWindowInsets
+        if (insets != null) {
+            h = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+                insets.getInsets(WindowInsets.Type.navigationBars()).bottom
+            else
+                @Suppress("DEPRECATION") insets.systemWindowInsetBottom
+        }
+        if (h == 0) {
+            val res = activity.resources
+            val showId = res.getIdentifier("config_showNavigationBar", "bool", "android")
+            if (showId != 0 && res.getBoolean(showId)) {
+                val heightId = res.getIdentifier("navigation_bar_height", "dimen", "android")
+                if (heightId != 0) h = res.getDimensionPixelSize(heightId)
+            }
+        }
+        return h
     }
 
     /**
@@ -144,6 +259,7 @@ object Yapchik {
         YapchikPrefs.init(application)
         _mode = YapchikPrefs.loadMode()
         _keyProfile = YapchikPrefs.loadProfile()
+        _navGuardDp = YapchikPrefs.loadNavGuard()
         application.registerActivityLifecycleCallbacks(lifecycleHook)
     }
 

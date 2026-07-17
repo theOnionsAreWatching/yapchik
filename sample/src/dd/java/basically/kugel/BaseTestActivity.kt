@@ -2,5 +2,5 @@ package basically.kugel
 
 import android.app.Activity
 
-/** A-Def: plain framework Activity under Theme.DeviceDefault. */
+/** DD flavor: plain Activity + Theme.DeviceDefault (from the main manifest). */
 open class BaseTestActivity : Activity()

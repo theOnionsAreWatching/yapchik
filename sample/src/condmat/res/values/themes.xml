@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <!-- AppCompat (non-Material3) theme: the library's Material3 detection
-         returns false here, so the navbar policy is set explicitly in App.kt. -->
-    <style name="Theme.PareveYapchikAC" parent="Theme.AppCompat.DayNight.NoActionBar" />
-</resources>

@@ -12,12 +12,25 @@ internal object YapchikPrefs {
     private const val KEY_PROFILE_ID = "profile_id"
     private const val KEY_CUSTOM_LEFT = "custom_left"
     private const val KEY_CUSTOM_RIGHT = "custom_right"
+    private const val KEY_NAV_GUARD = "nav_guard_dp"
 
     private var prefs: SharedPreferences? = null
 
     fun init(context: Context) {
         prefs = context.applicationContext
             .getSharedPreferences(FILE, Context.MODE_PRIVATE)
+    }
+
+    /** null = automatic. */
+    fun loadNavGuard(): Int? {
+        val p = prefs ?: return null
+        return if (p.contains(KEY_NAV_GUARD)) p.getInt(KEY_NAV_GUARD, 0) else null
+    }
+
+    fun saveNavGuard(value: Int?) {
+        val e = prefs?.edit() ?: return
+        if (value == null) e.remove(KEY_NAV_GUARD) else e.putInt(KEY_NAV_GUARD, value)
+        e.apply()
     }
 
     fun loadMode(): SoftkeyMode =

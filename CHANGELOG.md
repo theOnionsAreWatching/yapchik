@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.0.1 — 2026-07-16
+
+- Three-way theme detection (Yapchik.themeKind): MATERIAL3 /
+  APPCOMPAT / FRAMEWORK — Theme.DeviceDefault is OEM-overlayable and can
+  behave differently per device by design; library themes ship in the APK
+- AUTO navbar policy is now conditional on every theme family: navbar
+  hidden while the softkey bar is visible, restored when softkeys are off
+- FRAMEWORK-theme nav guard: while hiding is in effect the bar grows by a
+  guard height so labels stay above vendor strips that survive hide
+  requests; sizing order = user-set Yapchik.navGuardDp (persisted, 0
+  disables) > per-device XML profile (Yapchik.loadDeviceProfiles, matched
+  by Build.MODEL) > automatic probable navbar height
+- Test app reduced to three flavors (M3 / M / DD), one per theme family,
+  all on the default AUTO policy; DD setup screen gains a nav-guard
+  adjuster; example device-profiles XML included
+
 ## 1.0.0 — 2026-07-16
 
 Initial release. Licensed under PolyForm Noncommercial 1.0.0.

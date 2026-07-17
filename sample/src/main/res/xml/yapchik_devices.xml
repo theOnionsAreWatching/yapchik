@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Per-device settings for the softkey library (loaded in App.kt via
+    Yapchik.loadDeviceProfiles). model = android.os.Build.MODEL
+    (case-insensitive; Settings > About phone > Model, or
+    `adb shell getprop ro.product.model`).
+
+    navGuardDp — extra bar height used on Theme.DeviceDefault while the
+    navbar is hidden, keeping the labels above vendor strips that survive
+    hide requests:
+      "none"  = this device's DeviceDefault hides cleanly, no guard needed
+      integer = guard height in dp
+    Devices not listed use the automatic guard (probable navbar height).
+-->
+<devices>
+    <device model="EXAMPLE-CLEAN-PHONE" navGuardDp="none" />
+    <device model="EXAMPLE-STRIP-PHONE" navGuardDp="16" />
+</devices>

@@ -41,6 +41,17 @@ class SetupActivity : BaseTestActivity() {
         }
         findViewById<Button>(R.id.btn_continue).setOnClickListener { goToMenu() }
 
+        // Nav-guard adjustment (used on Theme.DeviceDefault while the navbar
+        // is hidden — keeps the labels above vendor strips that survive the
+        // hide). Persisted by the library; "Auto" returns to per-device/
+        // automatic sizing.
+        findViewById<Button>(R.id.btn_guard_minus).setOnClickListener { bumpGuard(-2) }
+        findViewById<Button>(R.id.btn_guard_plus).setOnClickListener { bumpGuard(+2) }
+        findViewById<Button>(R.id.btn_guard_auto).setOnClickListener {
+            Yapchik.navGuardDp = null
+            updateState()
+        }
+
         // No softkey bar on the setup screen — it conflicts with the setup
         // inputs. Per-screen override: force OFF regardless of the global
         // mode (a library feature: Softkeys.of(activity).screenMode).
@@ -73,11 +84,24 @@ class SetupActivity : BaseTestActivity() {
         syncing = false
     }
 
+    private fun bumpGuard(delta: Int) {
+        val current = Yapchik.navGuardDp ?: DEFAULT_GUARD_START
+        Yapchik.navGuardDp = (current + delta).coerceIn(0, 60)
+        updateState()
+    }
+
     private fun updateState() {
+        findViewById<TextView>(R.id.guard_label).text =
+            "Bar bottom guard (DeviceDefault): " +
+            (Yapchik.navGuardDp?.let { "${it}dp" } ?: "auto")
         findViewById<TextView>(R.id.setup_state).text =
             "Softkeys resolved: ${if (Yapchik.isActive) "ON" else "OFF"} " +
             "(mode: ${Yapchik.mode})\n" +
             "Layout: ${Yapchik.keyProfile.displayName}\n${Yapchik.keyProfile.describe()}"
     }
 
+
+    private companion object {
+        const val DEFAULT_GUARD_START = 16
+    }
 }

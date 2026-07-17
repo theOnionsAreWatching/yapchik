@@ -39,10 +39,9 @@ jobs:
         run: |
           mkdir -p out
           cp yapchik/build/outputs/aar/yapchik-release.aar out/yapchik.aar
-          cp sample/build/outputs/apk/condm3/debug/sample-condm3-debug.apk out/PareveYapchik-C-M3.apk
-          cp sample/build/outputs/apk/condmat/debug/sample-condmat-debug.apk out/PareveYapchik-C-Material.apk
-          cp sample/build/outputs/apk/alwaysmat/debug/sample-alwaysmat-debug.apk out/PareveYapchik-A-Material.apk
-          cp sample/build/outputs/apk/alwaysdef/debug/sample-alwaysdef-debug.apk out/PareveYapchik-A-Default.apk
+          cp sample/build/outputs/apk/m3/debug/sample-m3-debug.apk out/PareveYapchik-M3.apk
+          cp sample/build/outputs/apk/mat/debug/sample-mat-debug.apk out/PareveYapchik-M.apk
+          cp sample/build/outputs/apk/dd/debug/sample-dd-debug.apk out/PareveYapchik-DD.apk
 
       - name: Upload library AAR
         uses: actions/upload-artifact@v4
@@ -55,10 +54,9 @@ jobs:
         with:
           name: PareveYapchik-debug
           path: |
-            out/PareveYapchik-C-M3.apk
-            out/PareveYapchik-C-Material.apk
-            out/PareveYapchik-A-Material.apk
-            out/PareveYapchik-A-Default.apk
+            out/PareveYapchik-M3.apk
+            out/PareveYapchik-M.apk
+            out/PareveYapchik-DD.apk
 
       # On version tags, also publish a GitHub Release with both files
       # attached. (JitPack builds the library dependency from the same tag.)
@@ -68,8 +66,7 @@ jobs:
         with:
           files: |
             out/yapchik.aar
-            out/PareveYapchik-C-M3.apk
-            out/PareveYapchik-C-Material.apk
-            out/PareveYapchik-A-Material.apk
-            out/PareveYapchik-A-Default.apk
+            out/PareveYapchik-M3.apk
+            out/PareveYapchik-M.apk
+            out/PareveYapchik-DD.apk
           generate_release_notes: true

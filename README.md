@@ -481,15 +481,6 @@ adb shell input keyevent --longpress 1
 | `ReservedKeys.isReserved(keyCode)` | is this a normal key softkeys must never take? |
 | `YapchikSettingsDialog.show(activity)` | drop-in settings dialog |
 
-## Integration checklist
-
-- [ ] `Yapchik.install(this)` in `Application.onCreate()` (+ `android:name` in manifest)
-- [ ] Optional: `Yapchik.defaults { }` for app-wide keys
-- [ ] Softkeys per screen (`SoftkeyProvider` or `Softkeys.of(this).set { }`)
-- [ ] `invalidate()` calls wherever `visibleIf`/dynamic-label state changes
-- [ ] Settings reachable (`YapchikSettingsDialog.show(this)` behind a menu item is enough; includes the key-layout chooser)
-- [ ] Test with `Yapchik.mode = ON` + adb keyevents before shipping
-
 ## License
 
 **GNU Lesser General Public License v3.0 or later** 
